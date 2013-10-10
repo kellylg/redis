@@ -401,6 +401,9 @@ void loadServerConfigFromString(char *config) {
             if (sdslen(argv[2]) != 0) {
                 sds copy = sdsdup(argv[2]);
 
+                /* The renamed command will be skipped by MONITOR. */
+                cmd->flags |= REDIS_CMD_SKIP_MONITOR;
+
                 retval = dictAdd(server.commands, copy, cmd);
                 if (retval != DICT_OK) {
                     sdsfree(copy);
