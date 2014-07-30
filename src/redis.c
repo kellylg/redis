@@ -2369,6 +2369,51 @@ void commandCommand(redisClient *c) {
         }
     } else if (!strcasecmp(c->argv[1]->ptr, "count") && c->argc == 2) {
         addReplyLongLong(c, dictSize(server.commands));
+    } else if (!strcasecmp(c->argv[1]->ptr, "rename") && c->argc == 4) {
+
+        struct redisCommand *cmd = lookupCommand(c->argv[2]->ptr);
+        int retval;
+        sds copy;
+
+        /* Sanity check 1: Does the command exist? */
+        if (!cmd) {
+            addReplyError(c,"No such command.");
+            return;
+        }
+
+        /* Handle a special case: the source and target name are the same?
+         * Then the operation should succeed even if nothing is actually
+         * performed. */
+        if (sdscmp(c->argv[2]->ptr,c->argv[3]->ptr) == 0) {
+            addReply(c,shared.ok);
+            return;
+        }
+
+        /* Sanity check 2: The target command name should be non empty. */
+        if (sdslen(c->argv[3]->ptr) == 0) {
+            addReplyError(c,"The target command name cannot be empty.");
+            return;
+        }
+
+        /* Sanity check 3: The destination command name can't be busy. */
+        if (lookupCommand(c->argv[3]->ptr) != NULL) {
+            addReplyError(c,"The target command name is already in use.");
+            return;
+        }
+
+        /* Remove the old command name from the table and re-add it
+         * with a new name. */
+        retval = dictDelete(server.commands, c->argv[2]->ptr);
+        redisAssert(retval == DICT_OK);
+
+        copy = sdsdup(c->argv[3]->ptr);
+
+        retval = dictAdd(server.commands, copy, cmd);
+        redisAssert(retval == DICT_OK);
+
+        addReply(c,shared.ok);
+        return;
+
     } else {
         addReplyError(c, "Unknown subcommand or wrong number of arguments.");
         return;
