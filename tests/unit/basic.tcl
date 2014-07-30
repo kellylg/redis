@@ -780,4 +780,31 @@ start_server {tags {"basic"}} {
         r set foo bar
         r getrange foo 0 4294967297
     } {bar}
+
+    test {COMMAND rename} {
+        catch {r foo} err
+        string match ERR* $err
+
+	r command rename ping foo
+    	assert {[r foo] eq {PONG}}
+
+	r command rename foo ping
+        catch {r foobaredcommand} err
+        string match ERR* $err
+    }
+
+    test {COMMAND rename unknown} {
+        catch {r command rename foo bar} err
+        format $err
+    } {ERR*No such command*}
+
+    test {COMMAND rename to existing target} {
+        catch {r command rename ping echo} err
+        format $err
+    } {ERR*The target command name is already in use*}
+
+    test {COMMAND rename to empty target} {
+        catch {r command rename ping {}} err
+        format $err
+    } {ERR*The target command name cannot be empty*}
 }
